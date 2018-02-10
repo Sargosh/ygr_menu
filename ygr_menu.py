@@ -1,83 +1,103 @@
 """
-mittags_menu.py - Lädt die Mittagsmenüs von den 'Ygnis-Restaurants' und speicher sie als PDF
-
+-->> work in progress <<--
+ygr_menu.py - Lädt die Mittagsmenüs von den 'Restaurants' und speicher sie als PDF
 Installation von WKHTMLTOPDF ist notwendig! -> https://wkhtmltopdf.org/downloads.html
 """
-
-import urllib
-from urllib.request import urlopen
-import csv
-import pdfkit
-from bs4 import BeautifulSoup
 import datetime
 from string import Template
+import sys
+import csv
+import urllib
+from urllib.request import urlopen
+import pdfkit
+from bs4 import BeautifulSoup
 
-# CSV-Liste der Restaurants
-# Restaurant-Name, Homepage-URL, Menu-URL, int - ohne Kopfzeile
-CSVLIST = r'C:\Users\baschwanden\Desktop\Scripts\YGR-Rest\Restaurants.csv'
+CSVLIST = ("")
+PATH_WKHTMLTOPDF = ("")
+OPTIONS = {}
+CONFIG = ("")
 
-# PDFKIT Configuration
-PATH_WKHTMLTOPDF = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
-CONFIG = pdfkit.configuration(wkhtmltopdf=PATH_WKHTMLTOPDF)
-OPTIONS = {
-    'page-size': 'A4',
-    'margin-top': '0.75in',
-    'margin-right': '0.75in',
-    'margin-bottom': '0.75in',
-    'margin-left': '0.75in',
-    'encoding': "UTF-8",
-    'no-outline': None
-    }
 
 def main():
     """ Main Funktion - startet den ganzen Quatsch :)"""
-    rest_list = read_restaurant(CSVLIST)
-    menu = prepare_restlist(rest_list, 3)
     
-    #html_file = "August Wolhusen - " + weekday + ".html"
-    #save_str_as_html(m, html_file)
-    #pdfkit.from_string(m, rest[0] + " - " + weekday + ".pdf", options=OPTIONS, configuration=CONFIG)
+    load_settings() # Lade einige Einstellungen
     
+    # Lade eine .csv mit Restaurants in eine Liste[ ... , ... , ... , ... ]
+    restaurants = read_restaurant(CSVLIST)                    
+    
+    for restaurant in restaurants:  # Druchläuft die Restaurants in der geladenen CSV-Liste "restaurants"
+        for wday in range(1,6): # Durchläuft die Wochentage Montag(1) bis Freitag(5)
+            open_days = restaurant[4].replace(";",",")   # Öffnungszeiten
+            menuday = get_weekday(wday)
+            print(restaurant[0])
+            print(menuday)
+            print(open_days)
+            print(wday)
+            if str(wday) in open_days:  # Falls an dem Wochentag geöffnet, dann ...
+                pdf_filename = restaurant[0] + " - " + menuday + ".pdf"
+                if int(restaurant[3]) == 1:   # 1 = extract aus HTML-Code
+                    menu = prepare_menu(restaurant, wday)
+                    html_menu = create_html_menu(menu, wday)
+                    
+                    html_filename = restaurant[0] + " - " + menuday + ".html"
+                    pdf_filename = restaurant[0] + " - " + menuday + ".pdf"
+                    save_str_as_html(html_menu, html_filename)
 
-def prepare_restlist(rest_list, wday):
-    """ Wählt anhand des "Verarbeitungs-Codes" (rest[4]) die Methode zum erstellen des PDF fest.
-        1 = extract aus HTML-Code / 2 = PDF-Download / 3 = HTML print as PDF """
-    for rest in rest_list:
-        if int(rest[3]) == 1:
-           
-            if rest[0] == "August Wolhusen":
-                parsed_html = BeautifulSoup()
-                weekday = str()
+                    pdfkit.from_string(html_menu, pdf_filename, options=OPTIONS, configuration=CONFIG)
                 
-                html = load_html(rest[2])
-                print(wday)
+                elif int(restaurant[3]) == 2:   # 2 = Download PDF
                     
-                if str(wday) == str(3):
-                    weekday = "Mittwoch"
-                elif str(wday) == str(4):
-                    weekday = "Donnerstag"
-                elif str(wday) == str(5):
-                    weekday = "Freitag"
-                                        
-                return extract_august_menu(html,wday)
-                   
-                    
-                
-            else:
-                pass
-                #print("{} = {}".format(rest[0], rest[3]))
-        
-        elif int(rest[3]) == 2:
-            pass
-            #print("{} = {}".format(rest[0], rest[3]))
-        
-        elif int(rest[3]) == 3:
-            pass
-            #print("{} = {}".format(rest[0], rest[3]))
-        
+                    download_pdf(restaurant[2], pdf_filename)
+                elif int(restaurant[3]) == 3:   # 3 = PDF aus HTML
+                    save_html_as_pdf(restaurant[3], pdf_filename)
+
+def load_settings():
+    
+    global CSVLIST
+    global PATH_WKHTMLTOPDF
+    global OPTIONS
+    global CONFIG
+    
+    # CSV-Liste der Restaurants
+    # Restaurant-Name, Homepage-URL, Menu-URL, int - ohne Kopfzeile
+    CSVLIST = r'D:\Daten\GitHub\ygr_menu\Restaurants.csv'
+
+    # PDFKIT Configuration
+    PATH_WKHTMLTOPDF = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
+    CONFIG = pdfkit.configuration(wkhtmltopdf=PATH_WKHTMLTOPDF)
+    OPTIONS = {
+        'page-size': 'A4',
+        'margin-top': '0.75in',
+        'margin-right': '0.75in',
+        'margin-bottom': '0.75in',
+        'margin-left': '0.75in',
+        'encoding': "UTF-8",
+        'no-outline': None
+        } 
+
+def get_weekday(day = None):
+
+    week = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+
+    if day != None:
+        return week[int(day) - 1]
+    else:
+        day = datetime.datetime.now().weekday()
+        return week[day]
+
+def prepare_menu(restaurant, wday):
+    """ 
+    
+    """
+    if int(restaurant[3]) == 1:   # 1 = extract aus HTML-Code
+        if restaurant[0] == "August Wolhusen":
+            parsed_html = BeautifulSoup()
+            html = load_html(restaurant[2])
+            return extract_remimag_menu(html,wday)
         else:
             pass
-            #print("Es wurde kein 'Verarbeitungs-Code' gefunden. (1,2,3)")
+            #print("{} = {}".format(rest[0], rest[3]))
 
 def check_url(testurl):
     """ Testet ob die URL verfügbar ist """
@@ -110,11 +130,11 @@ def load_html(url):
     html_to_read = urllib.request.Request(url, headers={'User-Agent' : "Magic Browser"})
     return urlopen(html_to_read)
 
-def extract_august_menu(html, wday):
-    """   Suche in einem htmlstring nach dem Mittagsmenü   """
+def extract_remimag_menu(html, wday):
+    """   Suche in einem htmlstring von einem "Remimag AG"-Restaurant nach dem Mittagsmenü   """
     parsed_html = BeautifulSoup(html, 'html.parser')
-    print(html)
-    print(parsed_html)
+    #print(html)
+    #print(parsed_html)
     new_menu = []
     menu = str()
     s = str()
@@ -122,28 +142,29 @@ def extract_august_menu(html, wday):
     new = True
     space = False
     
-    if str(wday) == str(3):
-        pass
-    elif str(wday) == str(4):
-        pass
-    elif str(wday) == str(5):
-        pass
-    else:
-        print("Geben Sie einen gültigen Wochentag an! (3,4,5)")
+    # if str(wday) == str(3):
+    #     pass
+    # elif str(wday) == str(4):
+    #     pass
+    # elif str(wday) == str(5):
+    #     pass
+    # else:
+    #     print("Geben Sie einen gültigen Wochentag an! (3,4,5)")
 
     
     
     #menu = 'Das Menü für das Restaurant August in Wolhusen:\n'
     #for n in range(3,6):    # Druchläuft die 3 Mittagsmenüs / Mittwoch "menu-3", Donnerstag "menu-4", Freitag "menu-5"
+    
     for p in parsed_html.body.find('div', attrs={'id':'menu-{}'.format(wday)}).findAll('p'):   # Durchläuft alle Menüs (5) des Tages
         menu += p.text
 
-    print("Menu : " + menu)
+    #print("Menu : " + menu)
 
     for char in menu: # Ersetzt mehrere Tap (9) und/oder Newline (10) durch einen einzelnen Newline
         if ord(char) == 9 or ord(char) == 10:
             if new == False:
-                line += 1
+                line += 1   # 
             new = True
         else:
             if new == True and line != 0:
@@ -159,13 +180,36 @@ def extract_august_menu(html, wday):
     if new == True and line != 0:
         new_menu.append(str(s).replace("  "," "))
         s = ""
-    print(new_menu)
+    return new_menu
 
+def create_html_menu(menu, wday):    
     # HTML-Template config
-    now_time_format = "%A %b %d %Y"
-    last_update_format = "%a %b %d %H:%M %Y"
+    weekday = get_weekday(wday)
+    now_time_format = "%d %b %Y"
+    last_update_format = "%d %b %H:%M %Y"
     date = datetime.datetime.now().strftime(now_time_format)
     last_update = datetime.datetime.now().strftime(last_update_format)
+
+    cor_menu = []
+    if len(menu) < 15:    #< Es sollten 5 Menüs a 3 Zeilen (=15) sein, falls nicht...
+        row_menu = 0
+        
+        for row in menu:
+            if row[0:3] == "CHF": # and row_menu % 3 != 0:  # Falls "CHF" und nicht in der 3. Zeile, dann ...
+                while (len(cor_menu) + 1) % 3 != 0:
+                    cor_menu.append(" ")
+                cor_menu.append(menu[row_menu])
+            else: # Falls "CHF" in der 3. Zeile des Menüs steht ist alles i.o.
+                cor_menu.append(menu[row_menu])
+            row_menu += 1 # Zähler für Reihe +1
+    elif len(menu) > 15:
+             print("es wurden mehr als 15 Zeilen Menü gefunden")
+             sys.exit
+    
+    if not len(menu) == 15:
+        menu = cor_menu 
+
+    print(menu)
 
     # HTML-Template zusammenfügen
     t = Template("""<!DOCTYPE html>
@@ -183,7 +227,7 @@ def extract_august_menu(html, wday):
             <meta http-equiv=Content-Type content="text/html; charset=utf-8">
             <body>
                 <h1>Restaurant August, Wolhusen</h1>
-                <h2>Mittagsmenüs - $datum</h2>
+                <h2>Mittagsmenüs - $weekday $datum</h2>
                 <p>letzte Aktuallisierung: $update</p>
                 <br>
                 <h3>*** $menu31 ***</h3>
@@ -207,18 +251,23 @@ def extract_august_menu(html, wday):
                 <h5>$menu73</h5>
             </body>
         </html>""")
+    
+    print(len(menu))
+    
+    
     y=0
-    for x in new_menu:
-        print( str(y) + " = " + new_menu[y])
+    for x in range(0,(len(menu))):
+        print( str(y) + " = " + menu[y])
         y += 1
-    menu_mittwoch = t.substitute(datum=date, update=last_update, 
-        menu31=new_menu[0], menu32=new_menu[1], menu33=new_menu[2], 
-        menu41=new_menu[3], menu42=new_menu[4], menu43=new_menu[5],
-        menu51=new_menu[6], menu52=new_menu[7], menu53=new_menu[8],
-        menu61=new_menu[9], menu62=new_menu[10], menu63=new_menu[11],
-        menu71=new_menu[12], menu72=new_menu[13], menu73=new_menu[14],)
+        
+    menu = t.substitute(weekday=weekday, datum=date, update=last_update, 
+        menu31=menu[0], menu32=menu[1], menu33=menu[2], 
+        menu41=menu[3], menu42=menu[4], menu43=menu[5],
+        menu51=menu[6], menu52=menu[7], menu53=menu[8],
+        menu61=menu[9], menu62=menu[10], menu63=menu[11],
+        menu71=menu[12], menu72=menu[13], menu73=menu[14],)
 
-    return menu_mittwoch
+    return menu
 
 def save_str_as_html(htmlstr, htmlfile):
     file = open(htmlfile, 'w')
@@ -250,5 +299,3 @@ def download_pdf(download_url, pdffile):
 
 if __name__ == "__main__":
     main()
-
-
